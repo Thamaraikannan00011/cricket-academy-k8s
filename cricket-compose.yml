@@ -1,0 +1,189 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cricket-config
+data:
+  POSTGRES_DB: cricket_academy
+  POSTGRES_USER: postgres
+  BACKEND_PORT: "8080"
+  FRONTEND_PORT: "5000"
+  DATABASE_URL: jdbc:postgresql://cricket-db:5432/cricket_academy
+  DATABASE_USERNAME: postgres
+  HIBERNATE_DDL_AUTO: update
+  SHOW_SQL: "true"
+  BACKEND_BASE_URL: http://cricket-backend:8080/api
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cricket-secret
+type: Opaque
+stringData:
+  POSTGRES_PASSWORD: admin
+  DATABASE_PASSWORD: admin
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cricket-postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cricket-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cricket-db
+  template:
+    metadata:
+      labels:
+        app: cricket-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: cricket-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: cricket-config
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cricket-secret
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: cricket-postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cricket-db
+spec:
+  selector:
+    app: cricket-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cricket-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cricket-backend
+  template:
+    metadata:
+      labels:
+        app: cricket-backend
+    spec:
+      containers:
+        - name: cricket-backend
+          image: thamaraikannans/cricket-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: cricket-config
+                  key: DATABASE_URL
+            - name: DATABASE_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cricket-config
+                  key: DATABASE_USERNAME
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cricket-secret
+                  key: DATABASE_PASSWORD
+            - name: HIBERNATE_DDL_AUTO
+              valueFrom:
+                configMapKeyRef:
+                  name: cricket-config
+                  key: HIBERNATE_DDL_AUTO
+            - name: SHOW_SQL
+              valueFrom:
+                configMapKeyRef:
+                  name: cricket-config
+                  key: SHOW_SQL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cricket-backend
+spec:
+  selector:
+    app: cricket-backend
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cricket-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cricket-frontend
+  template:
+    metadata:
+      labels:
+        app: cricket-frontend
+    spec:
+      containers:
+        - name: cricket-frontend
+          image: thamaraikannans/cricket-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          env:
+            - name: BACKEND_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: cricket-config
+                  key: BACKEND_BASE_URL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cricket-frontend
+spec:
+  selector:
+    app: cricket-frontend
+  type: NodePort
+  ports:
+    - name: http
+      port: 80
+      targetPort: 5000
+      nodePort: 30001

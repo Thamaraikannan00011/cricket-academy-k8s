@@ -1,0 +1,47 @@
+html, body {
+    height: 100%;
+}
+
+/* background on every page */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+
+    background-image: url("../img/cricket-equipment-digital-art.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+
+    display: flex;
+    flex-direction: column;
+}
+
+/* brand style */
+.navbar-brand {
+    font-weight: bold;
+}
+
+/* scrollable main area; header/footer fixed */
+.main-content {
+    flex: 1 0 auto;
+    overflow-y: auto;
+    padding-top: 70px;    /* height of fixed navbar */
+    padding-bottom: 60px; /* height of fixed footer */
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* fixed footer at bottom */
+.footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1030;
+}
+
+/* tables */
+table td,
+table th {
+    vertical-align: middle;
+}
